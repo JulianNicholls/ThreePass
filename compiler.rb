@@ -6,8 +6,9 @@ end
 
 class Compiler
 
-  def initialize( program = nil )
+  def initialize( program = nil, options = {} )
     @program = program.dup if program
+    @verbose = options[:verbose] || false
   end
   
   
@@ -15,63 +16,64 @@ class Compiler
     @program = program.dup if program
     raise ParseError.new "No program specified" unless @program
 
-    puts "PASS1: #@program"
+    puts "PASS1: #@program" if @verbose
     
     tokenise
     collect_arglist
     
     @ast = expression
-    pp @ast
+    pp @ast if @verbose
   end
   
   def pass2
     @ast = simplify @ast
     
-    puts "AST (simp): "
-    pp @ast
+    puts "AST (simp): " if @verbose
+    pp @ast if @verbose
   end
 
-  def simplify expr
-    if [:imm, :arg].include? expr[:op]
-      return expr
-    end
-      
-    left  = simplify expr[:a]
-    right = simplify expr[:b]
     
-    if left[:op] == :imm && right[:op] == :imm
-      lval, rval = left[:n], right[:n]
-      
-      print "#{lval} #{expr[:op]} #{rval} -> "
-      
-      value = case expr[:op]
-        when  '+' then  lval + rval
-        when  '-' then  lval - rval
-        when  '*' then  lval * rval
-        when  '/' then  lval / rval
-      end
-      puts value
-      { op: :imm, n: value }
-    else
-      { op: expr[:op], a: left, b: right }
-    end
-  end
-  
   def expression
     apart = term
     
     return apart if @tokens.first.nil? || !('+-'.include?( @tokens.first ))
+
+    now = nil?
     
-    { op: @tokens.shift, a: apart, b: expression }
+    while !@tokens.first.nil? && '+-'.include?( @tokens.first )
+      curop = @tokens.shift
+      bpart = term
+      if now
+        now = { op: curop, a: now, b: bpart }
+      else
+        now = { op: curop, a: apart, b: bpart }
+      end
+    end
+    
+    now
   end
+  
   
   def term
     apart = factor
     
     return apart if @tokens.first.nil? || !('*/'.include?( @tokens.first ))
     
-    { op: @tokens.shift, a: apart, b: term }
+    now = nil?
+    
+    while !@tokens.first.nil? && '*/'.include?( @tokens.first )
+      curop = @tokens.shift
+      bpart = factor
+      if now
+        now = { op: curop, a: now, b: bpart }
+      else
+        now = { op: curop, a: apart, b: bpart }
+      end
+    end
+    
+    now
   end
+  
   
   def factor
     tok = @tokens.shift
@@ -79,7 +81,7 @@ class Compiler
 #    puts "TOKEN: #{tok} (#{tok.class})"
     
     return { op: :imm, n: tok } if tok.is_a? Fixnum      
-    return { op: :arg, n: tok } if tok =~ /^\w/
+    return { op: :arg, n: @args.index( tok ) } if tok =~ /^\w/
     
     raise ParseError.new "Expected '(', got #{tok.inspect}" if tok != '('
     
@@ -90,6 +92,36 @@ class Compiler
     ret
   end
 
+  
+  def simplify expr
+    this_op = expr[:op]
+    
+    if [:imm, :arg].include? this_op
+      return expr
+    end
+      
+    left  = simplify expr[:a]
+    right = simplify expr[:b]
+    
+    if left[:op] == :imm && right[:op] == :imm
+      lval, rval = left[:n], right[:n]
+      
+      print "#{lval} #{this_op} #{rval} -> " if @verbose
+      
+      value = case this_op
+        when  '+' then  lval + rval
+        when  '-' then  lval - rval
+        when  '*' then  lval * rval
+        when  '/' then  lval / rval
+      end
+      puts value if @verbose
+      { op: :imm, n: value }
+    else
+      { op: this_op, a: left, b: right }
+    end
+  end
+
+  
 private
 
   def tokenise
@@ -99,7 +131,7 @@ private
       (tok =~ /^\d/) ? tok.to_i : tok
     end
     
-#    p @tokens
+    p @tokens if @verbose
   end
 
   
@@ -114,7 +146,7 @@ private
       arg  = @tokens.shift
     end
     
-#    p @args
+    p @args if @verbose
     
     raise ParseError.new "No final ']' for argument list" if @tokens.length == 0
   end
