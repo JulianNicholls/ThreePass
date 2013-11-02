@@ -1,10 +1,13 @@
 require 'pp'
 
+require './simulate'
 
 class ParseError < Exception
 end
 
 class Compiler
+
+  attr_reader :assembler
 
   def initialize( program = nil, options = {} )
     @program = program.dup if program
@@ -26,12 +29,46 @@ class Compiler
   end
   
   def pass2
-    @ast = simplify @ast
+    @ast = simplify_ast @ast
     
     puts "AST (simp): " if @verbose
     pp @ast if @verbose
   end
 
+  
+  def pass3
+    @assembler = generate( @ast )
+    
+    pp @assembler if @verbose
+    simplify_assembler
+    pp @assembler if @verbose
+  end
+  
+  
+  def generate( node )    # Post-order traversal?
+    mc_ins = []
+    
+    if( [:imm, :arg].include? node[:op] )
+      mc_ins = if( node[:op] == :imm )
+        ["IM #{node[:n]}"]
+      else
+        ["AR #{node[:n]}"]
+      end
+    else
+      mc_ins = generate( node[:a] )
+      mc_ins += generate( node[:b] )
+      mc_ins += ['PO', 'SW', 'PO']
+      mc_ins += case node[:op]
+        when '+'  then ['AD']
+        when '-'  then ['SU']
+        when '*'  then ['MU']
+        when '/'  then ['DI']
+      end
+    end
+      
+    return mc_ins + ['PU'];
+  end
+  
     
   def expression
     apart = term
@@ -93,27 +130,22 @@ class Compiler
   end
 
   
-  def simplify expr
+  def simplify_ast expr
     this_op = expr[:op]
     
     if [:imm, :arg].include? this_op
       return expr
     end
       
-    left  = simplify expr[:a]
-    right = simplify expr[:b]
+    left  = simplify_ast expr[:a]
+    right = simplify_ast expr[:b]
     
     if left[:op] == :imm && right[:op] == :imm
       lval, rval = left[:n], right[:n]
       
       print "#{lval} #{this_op} #{rval} -> " if @verbose
       
-      value = case this_op
-        when  '+' then  lval + rval
-        when  '-' then  lval - rval
-        when  '*' then  lval * rval
-        when  '/' then  lval / rval
-      end
+      value = lval.send( this_op.to_sym, rval )
       puts value if @verbose
       { op: :imm, n: value }
     else
@@ -121,6 +153,23 @@ class Compiler
     end
   end
 
+  
+  def simplify_assembler
+    idx = 0
+    while idx < @assembler.length
+      if @assembler[idx] == 'PU' && @assembler[idx+1] == 'PO'
+        @assembler.slice!( idx, 2 )
+      else
+        idx += 1
+      end
+    end
+    
+    if @assembler.last == 'PU'
+      @assembler.slice!( -1, 1 )
+    end
+  end
+  
+  
   
 private
 
@@ -153,25 +202,35 @@ private
 end
 
 if $0 ==  __FILE__
-  cmp = Compiler.new
-  cmp.pass1( '[x y] x + y' )
-  puts
-  cmp.pass1( '[x y] x - y' )
-  puts
-  cmp.pass1( '[x y] x * y' )
-  puts
-  cmp.pass1( '[x y] x / y' )
-  puts
-  cmp.pass1( '[x y z] x + y * z' )
-  puts
-  cmp.pass1( '[x y z] x + y + z' )
-
-  puts
+  cmp = Compiler.new nil, verbose: true
+#  cmp.pass1( '[x y] x + y' )
+#  puts
+#  cmp.pass1( '[x y] x - y' )
+#  puts
+#  cmp.pass1( '[x y] x * y' )
+#  puts
+#  cmp.pass1( '[x y] x / y' )
+#  puts
+#  cmp.pass1( '[x y z] x + y * z' )
+#  puts
+#  cmp.pass1( '[x y z] x + y + z' )
+#
+#  puts
   cmp.pass1( '[x y z] (x + y) * z' )
+  cmp.pass2
+  cmp.pass3
+
+  runner = Simulator.new( cmp.assembler, [2, 3, 4] )
+  puts "Run: #{runner.run}"
   
   puts
-  cmp.pass1( '[ x y z ] ( 2*3*x + 5*y - 3*z ) / (1 + 3 + 2*2)' )
+  cmp.pass1( '[ x y z ] ( 2*3*x + 5*y - 2*z ) / (1 + 3 + 2*2)' )
   cmp.pass2
+  cmp.pass3
+  
+  runner.set_code( cmp.assembler, [8, 4, 2] )
+  
+  puts "Run: #{runner.run}"
 end
 
 # pass1( '[ x y z ] ( 2*3*x + 5*y - 3*z ) / (1 + 3 + 2*2)' )
