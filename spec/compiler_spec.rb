@@ -93,18 +93,41 @@ describe Compiler do
     end
     
     describe "#pass2" do
-      it "should simplify by folding up constant expressions" do
+      it "should simplify a constant addition" do
+        @compiler.pass1 '[ x ] (9 + 9) * x'
+        @compiler.pass2
+        expect( @compiler.ast ).to eq( {op: '*', a: {op: :imm, n: 18}, b: {op: :arg, n: 0}} );
+      end
+    
+      it "should simplify a constant subtraction" do
+        @compiler.pass1 '[ x ] (200 - 99) * x'
+        @compiler.pass2
+        expect( @compiler.ast ).to eq( {op: '*', a: {op: :imm, n: 101}, b: {op: :arg, n: 0}} );
+      end
+    
+      it "should simplify a constant multiplication" do
+        @compiler.pass1 '[ x ] 9 * 9 * x'
+        @compiler.pass2
+        expect( @compiler.ast ).to eq( {op: '*', a: {op: :imm, n: 81}, b: {op: :arg, n: 0}} );
+      end
+    
+      it "should simplify a constant division" do
+        @compiler.pass1 '[ x ] 121 / 11 * x'
+        @compiler.pass2
+        expect( @compiler.ast ).to eq( {op: '*', a: {op: :imm, n: 11}, b: {op: :arg, n: 0}} );
+      end
+    
+      it "should simplify a complicated expressions" do
         @compiler.pass1 '[ x y z ] ( 2*3*x + 5*y - 3*z ) / (1 + 3 + 2*2)'
         @compiler.pass2
         expect( @compiler.ast ).to eq( 
-{op: "/", 
-  a: {op: "-", 
-        a: {op: "+", 
-              a: { op: "*", a: {op: :imm, n: 6}, b: {op: :arg, n: 0}
-              }, b: { op: "*", a: {op: :imm, n: 5}, b: {op: :arg, n: 1} }
-                 }, b: { op: "*", a: {op: :imm, n: 3}, b: {op: :arg, n: 2} }
-  }, b: {op: :imm, n: 8}
-} )
+          {op: "/", 
+            a: {op: "-", 
+                  a: {op: "+", a: { op: "*", a: {op: :imm, n: 6}, b: {op: :arg, n: 0}},
+                               b: { op: "*", a: {op: :imm, n: 5}, b: {op: :arg, n: 1}}},
+                  b: {op: "*", a: {op: :imm, n: 3}, b: {op: :arg, n: 2}}},
+            b: {op: :imm, n: 8}
+          } )
       
       end
     end
