@@ -1,11 +1,13 @@
 class Simulator
 
-  def initialize( code, args )
+  def initialize( code, args, options = {} )
+    @verbose = options[:verbose] || false
     set_code( code, args )
   end
   
   def set_code( code, args )
     @code, @args = code, args
+    pp @code if @verbose
   end
   
   def run
