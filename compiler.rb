@@ -7,7 +7,7 @@ end
 
 class Compiler
 
-  OP_MAP = { imm: 'IM', arg: 'AR', '+' => 'AD', '-' => 'SU', '*' => 'MU', '/' => 'DI' };
+  OP_MAP = { imm: 'LD.I', arg: 'LD.M', '+' => 'ADD', '-' => 'SUB', '*' => 'MUL', '/' => 'DIV' };
 
   attr_reader :assembler
 
@@ -34,7 +34,7 @@ class Compiler
   def pass2
     @ast = simplify_ast @ast
     
-    puts "AST (simp): " if @verbose
+    print "AST (simp): " if @verbose
     pp @ast if @verbose
   end
 
@@ -53,16 +53,11 @@ class Compiler
   
   
   def expression
-    apart = term
-    
-    return apart if @tokens.first.nil? || !('+-'.include?( @tokens.first ))
-
-    now = nil
+    now = term
     
     while !@tokens.first.nil? && '+-'.include?( @tokens.first )
       curop = @tokens.shift
-      bpart = term
-      now = { op: curop, a: now || apart, b: bpart }
+      now = { op: curop, a: now, b: term }
     end
     
     now
@@ -70,16 +65,11 @@ class Compiler
   
   
   def term
-    apart = factor
-    
-    return apart if @tokens.first.nil? || !('*/'.include?( @tokens.first ))
-    
-    now = nil
+    now = factor
     
     while !@tokens.first.nil? && '*/'.include?( @tokens.first )
       curop = @tokens.shift
-      bpart = factor
-      now = { op: curop, a: now || apart, b: bpart }
+      now = { op: curop, a: now, b: factor }
     end
     
     now
@@ -125,26 +115,41 @@ class Compiler
   def generate( node )    # Post-order traversal
     this_op = node[:op]
     
-    return ["#{OP_MAP[this_op]} #{node[:n]}", "PU"] if [:imm, :arg].include? this_op
+    # Simple imm or arg OP imm OR arg => LD right, SWAP, LD left, OP, PUSH
+    
+    if is_data_load?( node[:a] ) && is_data_load?( node[:b] )
+      return ["#{OP_MAP[node[:b][:op]]} #{node[:b][:n]}", "SWAP", 
+              "#{OP_MAP[node[:a][:op]]} #{node[:a][:n]}", OP_MAP[this_op], 
+              "PUSH"]
+    end
+    
+    # Simple load
+    
+    return ["#{OP_MAP[this_op]} #{node[:n]}", "PUSH"] if is_data_load? this_op
 
+    # More involved operation
+    
     generate( node[:a] ) + generate( node[:b] ) +
-    ['PO', 'SW', 'PO', OP_MAP[this_op], 'PU']
+    ['POP', 'SWAP', 'POP', OP_MAP[this_op], 'PUSH']
   end
   
     
   def simplify_assembler
     idx = 0
     while idx < @assembler.length
-      if @assembler[idx] == 'PU' && @assembler[idx+1] == 'PO'
+      # Remove a redundant PUSH followed by POP
+      
+      if @assembler[idx] == 'PUSH' && @assembler[idx+1] == 'POP'
         @assembler.slice!( idx, 2 )
       else
         idx += 1
       end
     end
     
-    @assembler.slice!( -1, 1 ) if @assembler.last == 'PU'
+    # A final push is superfluous
+    
+    @assembler.slice!( -1, 1 ) if @assembler.last == 'PUSH'
   end
-  
   
   
 private
@@ -175,6 +180,14 @@ private
     
     raise ParseError.new "No final ']' for argument list" if @tokens.length == 0
   end
+  
+  def is_data_load? op
+    if op.is_a? Hash
+      op = op[:op]
+    end
+    
+    [:imm, :arg].include? op
+  end
 end
 
 
@@ -202,7 +215,7 @@ if $0 ==  __FILE__
   cmp.pass3
 
   runner = Simulator.new( cmp.assembler, [2, 3, 4], verbose: true )
-  puts "Run: #{runner.run}"
+  puts "Run: #{runner.run}" # Expect 20
   
   puts
   cmp.pass1( '[ x y z ] ( 2*3*x + 5*y - 2*z ) / (1 + 3 + 2*2)' )
@@ -211,6 +224,6 @@ if $0 ==  __FILE__
   
   runner.set_code( cmp.assembler, [8, 4, 2] )
   
-  puts "Run: #{runner.run}"
+  puts "Run: #{runner.run}" # Expect 8
   
 end
