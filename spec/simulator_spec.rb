@@ -38,21 +38,25 @@ describe "Simulator" do
 
   describe "#run" do
     it "should run a simple program" do
-      @compiler.pass1( '[x y z] (x + y) * z' )
-      @compiler.pass2
-      @compiler.pass3
+      @compiler.compile '[x y z] (x + y) * z'
 
       runner = Simulator.new( @compiler.assembler, [2, 3, 4] )
       expect( runner.run ).to eq 20
     end
     
     it "should run a more involved program" do
-      @compiler.pass1( '[ x y z ] ( 2*3*x + 5*y - 2*z ) / (1 + 3 + 2*2)' )
-      @compiler.pass2
-      @compiler.pass3
+      @compiler.compile '[ x y z ] ( 2*3*x + 5*y - 2*z ) / (1 + 3 + 2*2)'
 
       runner = Simulator.new( @compiler.assembler, [8, 4, 2] )
       expect( runner.run ).to eq 8
     end
+
+        it "should run a program with correct precedence" do
+      @compiler.compile "[ x y z ] x - y - z + 10 / 5 / 2 - 7 / 1 / 7"
+
+      runner = Simulator.new( @compiler.assembler, [5, 4, 1] )
+      expect( runner.run ).to eq 0
+    end
+
   end
 end

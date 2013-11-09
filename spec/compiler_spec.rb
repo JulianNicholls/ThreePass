@@ -147,37 +147,14 @@ describe Compiler do
       @compiler.pass1 '[ x y z ] ( 2*3*x + 5*y - 3*z ) / (1 + 3 + 2*2)'
       @compiler.pass2
       @compiler.pass3
-      expect( @compiler.assembler ).to eq [
-"LD.M 0", 
-"SWAP", 
-"LD.I 6", 
-"MUL", 
-"PUSH", 
-
-"LD.M 1", 
-"SWAP", 
-"LD.I 5", 
-"MUL", 
-"SWAP", 
-"POP", 
-"ADD", 
-"PUSH", 
-
-"LD.M 2", 
-"SWAP", 
-"LD.I 3", 
-"MUL", 
-"SWAP", 
-"POP", 
-"SUB", 
-"PUSH", 
-
-"LD.I 8", 
-"SWAP", 
-"POP", 
-"DIV"]
-
+      expect( @compiler.assembler ).to eq ["LD.M 0", "SWAP", "LD.I 6", "MUL", "PUSH", "LD.M 1", "SWAP", "LD.I 5", "MUL", "SWAP", "POP", "ADD", "PUSH", "LD.M 2", "SWAP", "LD.I 3", "MUL", "SWAP", "POP", "SUB", "PUSH", "LD.I 8", "SWAP", "POP", "DIV"]
     end
   end
-  
+
+  describe "#compile" do
+    it "should perform passes 1, 2, and 3 in order" do
+      @compiler.compile '[ x y z ] ( 2*3*x + 5*y - 3*z ) / (1 + 3 + 2*2)'
+      expect( @compiler.assembler ).to eq ["LD.M 0", "SWAP", "LD.I 6", "MUL", "PUSH", "LD.M 1", "SWAP", "LD.I 5", "MUL", "SWAP", "POP", "ADD", "PUSH", "LD.M 2", "SWAP", "LD.I 3", "MUL", "SWAP", "POP", "SUB", "PUSH", "LD.I 8", "SWAP", "POP", "DIV"]
+    end
+  end
 end
