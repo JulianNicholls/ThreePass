@@ -17,6 +17,13 @@ class Compiler
   end
   
   
+  def compile( program = nil )
+    pass1( program )
+    pass2
+    pass3
+  end
+  
+  
   def pass1( program = nil )
     @program = program.dup if program
     raise ParseError.new "No program specified" unless @program
@@ -40,7 +47,7 @@ class Compiler
 
   
   def pass3
-    @assembler = generate( @ast )
+    @assembler = generate @ast
     
     print "Generated: " if @verbose
     pp @assembler if @verbose
@@ -56,8 +63,7 @@ class Compiler
     now = term
     
     while !@tokens.first.nil? && '+-'.include?( @tokens.first )
-      curop = @tokens.shift
-      now = { op: curop, a: now, b: term }
+      now = { op: @tokens.shift, a: now, b: term }
     end
     
     now
@@ -68,8 +74,7 @@ class Compiler
     now = factor
     
     while !@tokens.first.nil? && '*/'.include?( @tokens.first )
-      curop = @tokens.shift
-      now = { op: curop, a: now, b: factor }
+      now = { op: @tokens.shift, a: now, b: factor }
     end
     
     now
@@ -82,20 +87,25 @@ class Compiler
     return { op: :imm, n: tok }                if tok.is_a? Fixnum      
     return { op: :arg, n: @args.index( tok ) } if tok =~ /^\w/
     
-    raise ParseError.new "Expected '(', got #{tok.inspect}" if tok != '('
+    bracketed tok
+  end
+
+  
+  def bracketed tok = nil
+    expect( '(', tok )
     
     ret = expression
     
-    raise ParseError.new "Expected ')', got #{tok.inspect}" if @tokens.shift != ')'
+    expect ')'
     
     ret
   end
-
+  
   
   def simplify_ast expr
     this_op = expr[:op]
     
-    return expr if [:imm, :arg].include? this_op
+    return expr if is_data_load? this_op
       
     left  = simplify_ast expr[:a]
     right = simplify_ast expr[:b]
@@ -161,15 +171,15 @@ private
       (tok =~ /^\d/) ? tok.to_i : tok
     end
     
-    p @tokens if @verbose
+    pp @tokens if @verbose
   end
 
   
   def collect_arglist
-    raise ParseError.new "No lead-in '[' for argument list" if @tokens.shift != '['
+    expect( '[', nil, message: "No lead-in '[' for argument list" )
     
     @args = []
-    arg  = @tokens.shift
+    arg   = @tokens.shift
     
     while @tokens.length > 0 && arg != ']'
       @args << arg
@@ -178,16 +188,23 @@ private
     
     p @args if @verbose
     
-    raise ParseError.new "No final ']' for argument list" if @tokens.length == 0
+    expect( ']', arg, message: "No final ']' for argument list" )
   end
   
+  
   def is_data_load? op
-    if op.is_a? Hash
-      op = op[:op]
-    end
+    op = op[:op] if op.is_a? Hash
     
     [:imm, :arg].include? op
   end
+  
+  
+  def expect( expected, read = nil, options = {} )
+    actual  = read || @tokens.shift
+    message = options[:message] || "Expected #{expected}, but got #{actual}"
+    raise ParseError.new( message ) unless expected == actual
+  end
+  
 end
 
 

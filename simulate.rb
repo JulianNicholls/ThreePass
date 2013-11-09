@@ -5,6 +5,7 @@ class Simulator
     set_code( code, args )
   end
   
+  
   def set_code( code, args )
     @code, @args = code, args
     raise ArgumentError.new( "Arguments must be provided" ) unless @args.length > 0
@@ -12,6 +13,7 @@ class Simulator
     
     pp @code if @verbose
   end
+  
   
   def run
     r0, r1 = 0, 0
