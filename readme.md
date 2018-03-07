@@ -88,7 +88,7 @@ following instructions:
 So, one possible return value from pass3 given the Abstract Syntax Tree shown 
 above from pass2 is:
 ```
-    [ "IM 10", "SW", "AR 0", "AD" ]
+    [ "LD.I 10", "SWAP", "LD.M 0", "ADD" ]
 ```
 Here is a simulator for the target machine. It takes an array of assembly 
 instructions and an array of arguments and returns the result.
