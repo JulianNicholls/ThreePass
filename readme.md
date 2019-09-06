@@ -1,7 +1,11 @@
+# Three pass compiler
+
+This comes from a [1 Kyu Codewars Kata](https://www.codewars.com/kata/5265b0885fda8eac5900093b)
+
 You are writing a three-pass compiler for a simple programming language into 
 a small assembly language.
 
-The programming language has this syntax:
+## The programming language has this syntax:
 ```
     function   ::= '[' arg-list ']' expression
 
@@ -90,6 +94,3 @@ above from pass2 is:
 ```
     [ "LD.I 10", "SWAP", "LD.M 0", "ADD" ]
 ```
-Here is a simulator for the target machine. It takes an array of assembly 
-instructions and an array of arguments and returns the result.
-
