@@ -94,3 +94,9 @@ above from pass2 is:
 ```
     [ "LD.I 10", "SWAP", "LD.M 0", "ADD" ]
 ```
+# Solutions
+
+`solution.js` directly solves the Codewars kata.
+
+`compiler.rb` solves the same problem, but with a slightly different assembly language. The Ruby solution has not been
+run on the Codears site.
